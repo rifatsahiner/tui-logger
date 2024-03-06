@@ -1,0 +1,4 @@
+# Ignore build, bin, and _deneme folders
+build/
+bin/
+_deneme/
