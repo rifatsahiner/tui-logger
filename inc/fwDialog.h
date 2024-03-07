@@ -18,41 +18,54 @@ class FwDialog : public finalcut::FDialog
     };
 
     void addLog(std::wstring&& logLine, LogLevel logLevel);
-    void clearLogs(void);
-    void setAutoScroll(bool);
 
   private:
     void initLayout(void) override;
     void adjustSize(void) override;
 
     void _formLayout(void);
+    void _printLog(const std::wstring&, LogLevel, std::string::size_type = std::string::npos);
+    void _filter(void);
 
     void _autoScrollToggleCb(void);
     void _loggerScrollUpCb(void);
     void _playButtonCb(void);
-    void _logLevelClickCallback(LogLevel);
+    void _clearButtonCb(void);
+    void _logLevelClickCb(LogLevel);
+    void _filterChangedCb(void);
 
     // widgets
     finalcut::FTextView _fwLogger{this};
-    finalcut::FSwitch _toggleAutoScroll{L"Auto Scroll", this};
-    finalcut::FButton _buttonPlay{"\u23EF ", this};
+    finalcut::FButton _buttonPlay{L"Play/Pause", this};
     finalcut::FLabel _labelPlay{"\U0001F7E2", this};
-    finalcut::FButtonGroup _radiobutton_group {"Log Level", this};
+    finalcut::FButton _buttonClear{L"Clear", this};
+    finalcut::FButtonGroup _radiobutton_group {L"Log Level", this};
     finalcut::FRadioButton _error {"E", &_radiobutton_group};
     finalcut::FRadioButton _warning {"W", &_radiobutton_group};
     finalcut::FRadioButton _info {"I", &_radiobutton_group};
     finalcut::FRadioButton _trace {"T", &_radiobutton_group};
+    finalcut::FLineEdit _lineEditFilter {this};
+    finalcut::FSwitch _toggleAutoScroll{L"Auto Scroll", this};
 
     // data members
     const uint_fast16_t _logSize;
     uint_fast16_t _currentLogSize{0};
     bool _autoScroll{true};
     bool _isPlaying{true};
+    std::wstring _searchString;
     LogLevel _currentLogLevel{LogLevel::LOG_INFO};
     std::mutex _loggerViewMtx;
 
+    struct LogItem {
+      LogLevel logLevel;
+      std::wstring logString;
+    };
+    std::list<LogItem> _mainLogList;
 
     static constexpr uint_fast16_t DEFAULT_LOG_WINDOW_SIZE = 1000;
 };
+
+// append with r-value FString
+// moving a whole FTextViewList - this will call clear and than use new text list
 
 #endif  // FW_DIALOG_H

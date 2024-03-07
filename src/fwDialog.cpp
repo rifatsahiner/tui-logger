@@ -1,9 +1,6 @@
 
 #include "fwDialog.h"
 
-static inline uint_fast8_t getLogLevelFromChar(wchar_t);
-static inline wchar_t getChFromLogLevel(FwDialog::LogLevel);
-
 //////////////////////////////////////////////////////////////////////
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
@@ -13,6 +10,7 @@ FwDialog::FwDialog(finalcut::FWidget* parent, uint_fast16_t logSize) : finalcut:
     finalcut::FDialog::setText("FW");
     unsetShadow();
     unsetBorder();
+    setResizeable(false);
 
     _fwLogger.addCallback("mouse-wheel-up", this, &FwDialog::_loggerScrollUpCb);
 
@@ -20,16 +18,29 @@ FwDialog::FwDialog(finalcut::FWidget* parent, uint_fast16_t logSize) : finalcut:
     _toggleAutoScroll.addCallback("toggled", this, &FwDialog::_autoScrollToggleCb);
 
     _buttonPlay.addCallback("clicked", this, &FwDialog::_playButtonCb);
+    _buttonPlay.setForegroundColor(finalcut::FColor::White);
+    _buttonPlay.setFocusForegroundColor(finalcut::FColor::White);
+    _buttonPlay.setFocus();
+
+    _buttonClear.addCallback("clicked", this, &FwDialog::_clearButtonCb);
+    _buttonClear.setForegroundColor(finalcut::FColor::White);
+    _buttonClear.setFocusForegroundColor(finalcut::FColor::White);
 
     _info.setChecked();
-    _trace.addCallback("clicked", this, &FwDialog::_logLevelClickCallback, LogLevel::LOG_TRACE);
-    _info.addCallback("clicked", this, &FwDialog::_logLevelClickCallback, LogLevel::LOG_INFO);
-    _warning.addCallback("clicked", this, &FwDialog::_logLevelClickCallback, LogLevel::LOG_WARNING);
-    _error.addCallback("clicked", this, &FwDialog::_logLevelClickCallback, LogLevel::LOG_ERROR);
+    _trace.addCallback("clicked", this, &FwDialog::_logLevelClickCb, LogLevel::LOG_TRACE);
+    _info.addCallback("clicked", this, &FwDialog::_logLevelClickCb, LogLevel::LOG_INFO);
+    _warning.addCallback("clicked", this, &FwDialog::_logLevelClickCb, LogLevel::LOG_WARNING);
+    _error.addCallback("clicked", this, &FwDialog::_logLevelClickCb, LogLevel::LOG_ERROR);
+
+    _lineEditFilter.setLabelText(L"Filter");
+    _lineEditFilter.setLabelOrientation(finalcut::FLineEdit::LabelOrientation::Above);
+    _lineEditFilter.unsetShadow();
+    _lineEditFilter.addCallback("changed", this, &FwDialog::_filterChangedCb);
 }
 
 void FwDialog::addLog(std::wstring&& logLine, LogLevel logLevel) {
-    bool isOverflow {false};
+    bool isShifted {false};
+    bool isPrinted {false};
     
     if(_isPlaying == false){
         return;
@@ -39,58 +50,60 @@ void FwDialog::addLog(std::wstring&& logLine, LogLevel logLevel) {
         return;
     }
 
+    // lock logger view access
     std::lock_guard<std::mutex> lg(_loggerViewMtx);
 
     // rollover if log display is reached
     if(_currentLogSize < _logSize){
         _currentLogSize++;
     } else {
-        isOverflow = true;
-        _fwLogger.deleteLine(0);
-    }
-    
-    switch (logLevel) {
-    case LogLevel::LOG_TRACE:
-        logLine.insert(0, L"[TRACE]   ");
-        _fwLogger.append(finalcut::FString{std::move(logLine)});    
-        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 7, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::LightGray}});
-        break;
+        //remove oldest log from display
+        if(_searchString.empty()){
+            // if search is not active than remove oldest log
+            _fwLogger.deleteLine(0);
+            isShifted = true;
+        } else {
+            // if search is active than remove oldest log only if it matches the search string
+            if(_mainLogList.front().logString.find(_searchString) != std::string::npos){
+                _fwLogger.deleteLine(0);
+                isShifted = true;
+            }
+        }
 
-    case LogLevel::LOG_INFO:
-        logLine.insert(0, L"[INFO]    ");
-        _fwLogger.append(finalcut::FString{std::move(logLine)});    
-        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 6, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::Blue}});
-        break;
-
-    case LogLevel::LOG_WARNING:
-        logLine.insert(0, L"[WARNING] ");
-        _fwLogger.append(finalcut::FString{std::move(logLine)});    
-        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 9, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::DarkOrange}});
-        break;
-
-    case LogLevel::LOG_ERROR:
-        logLine.insert(0, L"[ERROR]   ");
-        _fwLogger.append(finalcut::FString{std::move(logLine)});    
-        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 7, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::Red}});
-        break;
-
-    default:
-        _fwLogger.append(L"[UNDEF]    PRINT LOG ATTEMPT WITH UNKNOWN LOG TYPE");    
-        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 7, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::Purple1}});
-        break;
+        //remove oldest log from main log list
+        _mainLogList.pop_front();
     }
 
-    if(_autoScroll){
-        _fwLogger.scrollToEnd();
+    // add log to display if necessary
+    if(_searchString.empty()){
+        _printLog(logLine, logLevel);
+        isPrinted = true;
     } else {
-        // scroll up by 1 to keep the same view when a new log is added and oldest one removed
-        if(isOverflow && (_fwLogger.getScrollPos().getY() > 0)) {
-            _fwLogger.scrollBy(0, -1);
+        std::string::size_type pos = logLine.find(_searchString);
+        if(pos != std::string::npos){
+            _printLog(logLine, logLevel, pos);
+            isPrinted = true;
+        } 
+    }
+
+    if(isPrinted){
+        if(_autoScroll){
+            _fwLogger.scrollToEnd();
+        } else {
+            // scroll up by 1 to keep the same view when a new log is added and oldest one removed
+            if(isShifted && (_fwLogger.getScrollPos().getY() > 0)) {
+                _fwLogger.scrollBy(0, -1);
+            }
+        }
+        _fwLogger.redraw();
+    } else {
+        if(isShifted){
+            _fwLogger.redraw();
         }
     }
 
-    //redraw();
-    _fwLogger.redraw();
+    // add log to main list
+    _mainLogList.emplace_back(LogItem{logLevel, std::move(logLine)});
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -115,20 +128,26 @@ void FwDialog::_formLayout(void)
     setGeometry(fwPosition, fwSize);
 
     // play/pause button
-    _buttonPlay.setGeometry(finalcut::FPoint{3,2}, finalcut::FSize{4, 1});
+    _buttonPlay.setGeometry(finalcut::FPoint{3,2}, finalcut::FSize{12, 1});
 
     // play/pause indicator
-    _labelPlay.setGeometry(finalcut::FPoint{9,2}, finalcut::FSize{3, 1});
+    _labelPlay.setGeometry(finalcut::FPoint{17,2}, finalcut::FSize{3, 1});
+
+    // clear button
+    _buttonClear.setGeometry(finalcut::FPoint{21,2}, finalcut::FSize{7, 1});
 
     // button group
-    _radiobutton_group.setGeometry(finalcut::FPoint{16,1}, finalcut::FSize{30, 3});
+    _radiobutton_group.setGeometry(finalcut::FPoint{32,1}, finalcut::FSize{30, 3});
     _error.setGeometry(finalcut::FPoint{1,1}, finalcut::FSize{6, 1});
     _warning.setGeometry(finalcut::FPoint{8,1}, finalcut::FSize{6, 1});
     _info.setGeometry(finalcut::FPoint{15,1}, finalcut::FSize{6, 1});
     _trace.setGeometry(finalcut::FPoint{22,1}, finalcut::FSize{6, 1});
 
+    // filter box
+    _lineEditFilter.setGeometry(finalcut::FPoint{66,2}, finalcut::FSize{20, 3});
+
     // auto scroll toggle
-    finalcut::FPoint togglePosition{getClientWidth() - 23, 2};
+    finalcut::FPoint togglePosition{static_cast<int>(getClientWidth()) - 22, 2};
     finalcut::FSize toggleSize{22, 1};
     _toggleAutoScroll.setGeometry(togglePosition, toggleSize);
 
@@ -136,6 +155,49 @@ void FwDialog::_formLayout(void)
     finalcut::FPoint loggerPosition{1,4};
     finalcut::FSize loggerSize{getClientWidth(), getClientHeight() - 3};
     _fwLogger.setGeometry(loggerPosition, loggerSize);
+}
+
+void FwDialog::_printLog(const std::wstring& logLine, LogLevel logLevel, std::string::size_type hglPos){
+    finalcut::FString logLineFstring{logLine};
+
+    switch (logLevel) {
+    case LogLevel::LOG_TRACE:
+        logLineFstring.insert(L"[TRACE]   ", 0);
+        _fwLogger.append(logLineFstring);    
+        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 7, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::LightGray}});
+        break;
+
+    case LogLevel::LOG_INFO:
+        logLineFstring.insert(L"[INFO]    ", 0);
+        _fwLogger.append(logLineFstring);    
+        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 6, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::Blue}});
+        break;
+
+    case LogLevel::LOG_WARNING:
+        logLineFstring.insert(L"[WARNING] ", 0);
+        _fwLogger.append(logLineFstring);    
+        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 9, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::DarkOrange}});
+        break;
+
+    case LogLevel::LOG_ERROR:
+        logLineFstring.insert(L"[ERROR]   ", 0);
+        _fwLogger.append(logLineFstring);    
+        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 7, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::Red}});
+        break;
+
+    default:
+        _fwLogger.append(L"[UNDEF]    PRINT LOG ATTEMPT WITH UNKNOWN LOG TYPE");    
+        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 7, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::Purple}});
+        return;
+    }
+
+    if(hglPos != std::string::npos){
+        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{hglPos + 10, _searchString.length(), finalcut::FColorPair{finalcut::FColor::Black, finalcut::FColor::Yellow}});
+    }
+}
+
+void FwDialog::_filter(void){
+
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -165,75 +227,83 @@ void FwDialog::_playButtonCb(void){
     _labelPlay.redraw();
 }
 
-void FwDialog::_logLevelClickCallback(LogLevel newLogLevel)
-{
-    if(newLogLevel == _currentLogLevel){
-        return;
-    } else {
-        std::lock_guard<std::mutex> lg(_loggerViewMtx);
+void FwDialog::_clearButtonCb(void){
+    // lock logger view access
+    std::lock_guard<std::mutex> lg(_loggerViewMtx);
+    _fwLogger.clear();
+    _mainLogList.clear();
+    _currentLogSize = 0;
+}
 
-        if(static_cast<uint_fast8_t>(newLogLevel) > static_cast<uint_fast8_t>(_currentLogLevel)){
-            // düşük seviye logları sil
-            uint_fast16_t i;
-            //std::lock_guard<std::mutex> lg(_loggerViewMtx);
+void FwDialog::_logLevelClickCb(LogLevel newLogLevel) {
+    if(newLogLevel != _currentLogLevel) {
+        if(static_cast<uint_fast8_t>(newLogLevel) > static_cast<uint_fast8_t>(_currentLogLevel)) {
+            bool emptyFlag = _searchString.empty();
             
-            for(i = _fwLogger.getLines().size(); i > 0; i--){
-                uint_fast8_t lineLevel = getLogLevelFromChar(_fwLogger.getLine(i-1).text[1]);
-                if(lineLevel < static_cast<uint_fast8_t>(newLogLevel)){
-                    _fwLogger.deleteLine(i-1);
+            // lock logger view access
+            std::lock_guard<std::mutex> lg(_loggerViewMtx);
+            
+            // clear logger view
+            _fwLogger.clear();
+
+            // remove lower level logs and print others
+            for(auto it = _mainLogList.cbegin(); it != _mainLogList.cend();) {
+                if(static_cast<uint_fast8_t>(it->logLevel) < static_cast<uint_fast8_t>(newLogLevel)) {
+                    it = _mainLogList.erase(it);
+                } else {
+                    if(emptyFlag) {
+                        _printLog(it->logString, it->logLevel);
+                    } else {
+                        std::string::size_type pos = it->logString.find(_searchString);
+                        if(pos != std::string::npos){
+                            _printLog(it->logString, it->logLevel, pos);
+                        }
+                    }
+                    it++;
                 }
             }
 
-            //adjustSize();
-            //redraw();
-            //finalcut::FDialog::adjustSize();
+            // scroll if needed and redraw logger view
+            if(_autoScroll){
+                _fwLogger.scrollToEnd();
+            }
+            _fwLogger.redraw();
         }
 
-        std::wstring indication {L"[LOGGER]  LOG LEVEL CHANGED TO "};
-        indication.push_back(getChFromLogLevel(newLogLevel));
-        _fwLogger.append(finalcut::FString{std::move(indication)});    
-        _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{0, 8, finalcut::FColorPair{finalcut::FColor::White, finalcut::FColor::Green}});
-
         _currentLogLevel = newLogLevel;
-        _fwLogger.redraw();
     }
 }
 
-//////////////////////////////////////////////////////////////////////
-//                                                                  //
-//////////////////////////////////////////////////////////////////////
+void FwDialog::_filterChangedCb(void){
+    bool clearFlag{false};
 
-uint_fast8_t getLogLevelFromChar(wchar_t ch){
-    switch (ch)
-    {
-    case L'E':
-        return static_cast<uint_fast8_t>(FwDialog::LogLevel::LOG_ERROR);
-    case L'W':
-        return static_cast<uint_fast8_t>(FwDialog::LogLevel::LOG_WARNING);
-    case L'I':
-        return static_cast<uint_fast8_t>(FwDialog::LogLevel::LOG_INFO);
-    case L'T':
-        return static_cast<uint_fast8_t>(FwDialog::LogLevel::LOG_TRACE);
-    case L'L':
-    case L'U':
-        return (static_cast<uint_fast8_t>(FwDialog::LogLevel::LOG_ERROR) + 1);
-    default:
-        assert(false);
+    // lock logger view access
+    std::lock_guard<std::mutex> lg(_loggerViewMtx);
+    
+    _searchString = _lineEditFilter.getText().toWString();
+    if(_searchString == L" "){
+        _searchString.clear();
+        clearFlag = true;
     }
-}
+    
+    // clear logger
+    _fwLogger.clear();
 
-wchar_t getChFromLogLevel(FwDialog::LogLevel logLevel){
-    switch (logLevel)
-    {
-    case FwDialog::LogLevel::LOG_ERROR:
-        return L'E';
-    case FwDialog::LogLevel::LOG_WARNING:
-        return L'W';
-    case FwDialog::LogLevel::LOG_INFO:
-        return L'I';
-    case FwDialog::LogLevel::LOG_TRACE:
-        return L'T';
-    default:
-        assert(false);
+    // search main list and print matching logs
+    for(auto it = _mainLogList.cbegin(); it != _mainLogList.cend(); it++){
+        if(clearFlag){
+            _printLog(it->logString, it->logLevel);
+        } else {
+            std::string::size_type pos = it->logString.find(_searchString);
+            if(pos != std::string::npos){
+                _printLog(it->logString, it->logLevel, pos);
+            }
+        }
     }
+
+    // scroll if needed and redraw logger view
+    if(_autoScroll){
+        _fwLogger.scrollToEnd();
+    }
+    _fwLogger.redraw();
 }
