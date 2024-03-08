@@ -3,7 +3,6 @@
 #define FW_DIALOG_H
 
 #include "final/final.h"
-#include <mutex>
 
 class FwDialog : public finalcut::FDialog
 {
@@ -19,13 +18,13 @@ class FwDialog : public finalcut::FDialog
 
     void addLog(std::wstring&& logLine, LogLevel logLevel);
 
-  private:
+  protected:
     void initLayout(void) override;
     void adjustSize(void) override;
 
-    void _formLayout(void);
+  private:
     void _printLog(const std::wstring&, LogLevel, std::string::size_type = std::string::npos);
-    void _filter(void);
+    void _adjust(void);
 
     void _autoScrollToggleCb(void);
     void _loggerScrollUpCb(void);
@@ -63,7 +62,7 @@ class FwDialog : public finalcut::FDialog
     };
     std::list<LogItem> _mainLogList;
 
-    static constexpr uint_fast16_t DEFAULT_LOG_BUFFER_SIZE = 1000;
+    static constexpr uint_fast16_t DEFAULT_LOG_BUFFER_SIZE = 2000;
 };
 
 // append with FString r-value referance

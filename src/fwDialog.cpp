@@ -7,11 +7,9 @@
 
 FwDialog::FwDialog(finalcut::FWidget* parent, uint_fast16_t logSize) : finalcut::FDialog{parent}, _logSize{logSize}
 {
-    finalcut::FDialog::setText("FW");
-    unsetShadow();
-    unsetBorder();
-    setResizeable(false);
-
+    //
+    // -widget config-
+    //
     _fwLogger.addCallback("mouse-wheel-up", this, &FwDialog::_loggerScrollUpCb);
 
     _toggleAutoScroll.setChecked(true);
@@ -36,7 +34,33 @@ FwDialog::FwDialog(finalcut::FWidget* parent, uint_fast16_t logSize) : finalcut:
     _lineEditFilter.setLabelOrientation(finalcut::FLineEdit::LabelOrientation::Above);
     _lineEditFilter.unsetShadow();
     _lineEditFilter.addCallback("changed", this, &FwDialog::_filterChangedCb);
+
+    //
+    // -layout-
+    //
+    // play/pause button
+    _buttonPlay.setGeometry(finalcut::FPoint{3,2}, finalcut::FSize{8, 1});
+
+    // play/pause indicator
+    _labelPlay.setGeometry(finalcut::FPoint{13,2}, finalcut::FSize{3, 1});
+
+    // clear button
+    _buttonClear.setGeometry(finalcut::FPoint{17,2}, finalcut::FSize{7, 1});
+
+    // button group
+    _radiobutton_group.setGeometry(finalcut::FPoint{27,1}, finalcut::FSize{29, 3});
+    _error.setGeometry(finalcut::FPoint{1,1}, finalcut::FSize{6, 1});
+    _warning.setGeometry(finalcut::FPoint{8,1}, finalcut::FSize{6, 1});
+    _info.setGeometry(finalcut::FPoint{15,1}, finalcut::FSize{6, 1});
+    _trace.setGeometry(finalcut::FPoint{22,1}, finalcut::FSize{6, 1});
+
+    // filter box
+    _lineEditFilter.setGeometry(finalcut::FPoint{58,2}, finalcut::FSize{16, 3});
 }
+
+//////////////////////////////////////////////////////////////////////
+//                                                                  //
+//////////////////////////////////////////////////////////////////////
 
 void FwDialog::addLog(std::wstring&& logLine, LogLevel logLevel) {
     bool isShifted {false};
@@ -111,41 +135,20 @@ void FwDialog::addLog(std::wstring&& logLine, LogLevel logLevel) {
 //////////////////////////////////////////////////////////////////////
 
 void FwDialog::initLayout(void) {
-    _formLayout();
+    _adjust();
     finalcut::FDialog::initLayout();
 }
 
 void FwDialog::adjustSize(void) {
-    _formLayout();
+    _adjust();
     finalcut::FDialog::adjustSize();
 }
 
-void FwDialog::_formLayout(void)
-{
-    // dialog
-    finalcut::FPoint fwPosition{1,1};
-    finalcut::FSize fwSize{finalcut::FApplication::getApplicationObject()->getDesktopWidth(), finalcut::FApplication::getApplicationObject()->getDesktopHeight()};
-    setGeometry(fwPosition, fwSize);
+//////////////////////////////////////////////////////////////////////
+//                                                                  //
+//////////////////////////////////////////////////////////////////////
 
-    // play/pause button
-    _buttonPlay.setGeometry(finalcut::FPoint{3,2}, finalcut::FSize{8, 1});
-
-    // play/pause indicator
-    _labelPlay.setGeometry(finalcut::FPoint{13,2}, finalcut::FSize{3, 1});
-
-    // clear button
-    _buttonClear.setGeometry(finalcut::FPoint{17,2}, finalcut::FSize{7, 1});
-
-    // button group
-    _radiobutton_group.setGeometry(finalcut::FPoint{27,1}, finalcut::FSize{29, 3});
-    _error.setGeometry(finalcut::FPoint{1,1}, finalcut::FSize{6, 1});
-    _warning.setGeometry(finalcut::FPoint{8,1}, finalcut::FSize{6, 1});
-    _info.setGeometry(finalcut::FPoint{15,1}, finalcut::FSize{6, 1});
-    _trace.setGeometry(finalcut::FPoint{22,1}, finalcut::FSize{6, 1});
-
-    // filter box
-    _lineEditFilter.setGeometry(finalcut::FPoint{58,2}, finalcut::FSize{16, 3});
-
+void FwDialog::_adjust(void) {
     // auto scroll toggle
     finalcut::FPoint togglePosition{static_cast<int>(getClientWidth()) - 14, 1};
     finalcut::FSize toggleSize{15, 3};
@@ -195,10 +198,6 @@ void FwDialog::_printLog(const std::wstring& logLine, LogLevel logLevel, std::st
     if(hglPos != std::string::npos){
         _fwLogger.addHighlight(_fwLogger.getLines().size()-1, finalcut::FTextView::FTextHighlight{hglPos + 10, _searchString.length(), finalcut::FColorPair{finalcut::FColor::Black, finalcut::FColor::Yellow}});
     }
-}
-
-void FwDialog::_filter(void){
-
 }
 
 //////////////////////////////////////////////////////////////////////

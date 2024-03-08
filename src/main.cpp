@@ -60,6 +60,13 @@ int main (int argc, char* argv[])
   // create fw-dialog
   FwDialog fwDialog(&app, 300);
   finalcut::FWidget::setMainWidget(&fwDialog);
+  fwDialog.setText(L"FW");
+  fwDialog.unsetShadow();
+  //fwDialog.unsetBorder();
+  fwDialog.setResizeable(true);
+  finalcut::FPoint fwPosition{1,1};
+  finalcut::FSize fwSize{app.getDesktopWidth(), app.getDesktopHeight()};
+  fwDialog.setGeometry(fwPosition, fwSize);
   fwDialog.show();
 
   std::thread independentThread(runInThread);
