@@ -5,38 +5,38 @@
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-FwDialog::FwDialog(finalcut::FWidget* parent, uint_fast16_t logSize) : finalcut::FDialog{parent}, _logSize{logSize}
+FLogView::FLogView(finalcut::FWidget* parent, uint_fast16_t logSize) : finalcut::FDialog{parent}, _logSize{logSize}
 {
     //
     // -widget config-
     //
-    _fwLogger.addCallback("mouse-wheel-up", this, &FwDialog::_loggerScrollUpCb);
+    _fwLogger.addCallback("mouse-wheel-up", this, &FLogView::_loggerScrollUpCb);
 
     _toggleAutoScroll.setChecked(true);
-    _toggleAutoScroll.addCallback("toggled", this, &FwDialog::_autoScrollToggleCb);
+    _toggleAutoScroll.addCallback("toggled", this, &FLogView::_autoScrollToggleCb);
 
-    _buttonPlay.addCallback("clicked", this, &FwDialog::_playButtonCb);
+    _buttonPlay.addCallback("clicked", this, &FLogView::_playButtonCb);
     _buttonPlay.setForegroundColor(finalcut::FColor::White);
     _buttonPlay.setFocusForegroundColor(finalcut::FColor::White);
     _buttonPlay.setFocus();
 
-    _buttonClear.addCallback("clicked", this, &FwDialog::_clearButtonCb);
+    _buttonClear.addCallback("clicked", this, &FLogView::clear);
     _buttonClear.setForegroundColor(finalcut::FColor::White);
     _buttonClear.setFocusForegroundColor(finalcut::FColor::White);
 
     _info.setChecked();
-    _trace.addCallback("clicked", this, &FwDialog::_logLevelClickCb, LogLevel::LOG_TRACE);
-    _info.addCallback("clicked", this, &FwDialog::_logLevelClickCb, LogLevel::LOG_INFO);
-    _warning.addCallback("clicked", this, &FwDialog::_logLevelClickCb, LogLevel::LOG_WARNING);
-    _error.addCallback("clicked", this, &FwDialog::_logLevelClickCb, LogLevel::LOG_ERROR);
+    _trace.addCallback("clicked", this, &FLogView::_logLevelClickCb, LogLevel::LOG_TRACE);
+    _info.addCallback("clicked", this, &FLogView::_logLevelClickCb, LogLevel::LOG_INFO);
+    _warning.addCallback("clicked", this, &FLogView::_logLevelClickCb, LogLevel::LOG_WARNING);
+    _error.addCallback("clicked", this, &FLogView::_logLevelClickCb, LogLevel::LOG_ERROR);
 
     _lineEditFilter.setLabelText(L"Filter");
     _lineEditFilter.setLabelOrientation(finalcut::FLineEdit::LabelOrientation::Above);
     _lineEditFilter.unsetShadow();
-    _lineEditFilter.addCallback("changed", this, &FwDialog::_filterChangedCb);
+    _lineEditFilter.addCallback("changed", this, &FLogView::_filterChangedCb);
 
     //
-    // -layout-
+    // -static layout-
     //
     // play/pause button
     _buttonPlay.setGeometry(finalcut::FPoint{3,2}, finalcut::FSize{8, 1});
@@ -62,7 +62,7 @@ FwDialog::FwDialog(finalcut::FWidget* parent, uint_fast16_t logSize) : finalcut:
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-void FwDialog::addLog(std::wstring&& logLine, LogLevel logLevel) {
+void FLogView::log(std::wstring&& logLine, LogLevel logLevel) {
     bool isShifted {false};
     bool isPrinted {false};
     
@@ -130,16 +130,24 @@ void FwDialog::addLog(std::wstring&& logLine, LogLevel logLevel) {
     _mainLogList.emplace_back(LogItem{logLevel, std::move(logLine)});
 }
 
+void FLogView::clear(void) {
+    // lock logger view access
+    std::lock_guard<std::mutex> lg(_loggerViewMtx);
+    _fwLogger.clear();
+    _mainLogList.clear();
+    _currentLogSize = 0;
+}
+
 //////////////////////////////////////////////////////////////////////
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-void FwDialog::initLayout(void) {
+void FLogView::initLayout(void) {
     _adjust();
     finalcut::FDialog::initLayout();
 }
 
-void FwDialog::adjustSize(void) {
+void FLogView::adjustSize(void) {
     _adjust();
     finalcut::FDialog::adjustSize();
 }
@@ -148,9 +156,9 @@ void FwDialog::adjustSize(void) {
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-void FwDialog::_adjust(void) {
+void FLogView::_adjust(void) {
     // auto scroll toggle
-    finalcut::FPoint togglePosition{static_cast<int>(getClientWidth()) - 14, 1};
+    finalcut::FPoint togglePosition{static_cast<int>(getClientWidth()) - 15, 1};
     finalcut::FSize toggleSize{15, 3};
     _toggleGroup.setGeometry(togglePosition, toggleSize);
     _toggleAutoScroll.setGeometry(finalcut::FPoint{2,1}, finalcut::FSize{10, 1});
@@ -161,7 +169,7 @@ void FwDialog::_adjust(void) {
     _fwLogger.setGeometry(loggerPosition, loggerSize);
 }
 
-void FwDialog::_printLog(const std::wstring& logLine, LogLevel logLevel, std::string::size_type hglPos){
+void FLogView::_printLog(const std::wstring& logLine, LogLevel logLevel, std::string::size_type hglPos){
     finalcut::FString logLineFstring{logLine};
 
     switch (logLevel) {
@@ -204,11 +212,11 @@ void FwDialog::_printLog(const std::wstring& logLine, LogLevel logLevel, std::st
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-void FwDialog::_autoScrollToggleCb(void) {
+void FLogView::_autoScrollToggleCb(void) {
     _autoScroll = _toggleAutoScroll.isChecked();
 }
 
-void FwDialog::_loggerScrollUpCb(void) {
+void FLogView::_loggerScrollUpCb(void) {
     if(_autoScroll){
         _autoScroll = false;
         _toggleAutoScroll.setChecked(false);
@@ -216,7 +224,7 @@ void FwDialog::_loggerScrollUpCb(void) {
     }
 }
 
-void FwDialog::_playButtonCb(void){
+void FLogView::_playButtonCb(void){
     if(_isPlaying){
         _isPlaying = false;
         _labelPlay.setText(finalcut::FString{std::wstring{L"\U0001F534"}});
@@ -227,15 +235,15 @@ void FwDialog::_playButtonCb(void){
     _labelPlay.redraw();
 }
 
-void FwDialog::_clearButtonCb(void){
-    // lock logger view access
-    std::lock_guard<std::mutex> lg(_loggerViewMtx);
-    _fwLogger.clear();
-    _mainLogList.clear();
-    _currentLogSize = 0;
-}
+// void FLogView::_clearButtonCb(void){
+//     // lock logger view access
+//     std::lock_guard<std::mutex> lg(_loggerViewMtx);
+//     _fwLogger.clear();
+//     _mainLogList.clear();
+//     _currentLogSize = 0;
+// }
 
-void FwDialog::_logLevelClickCb(LogLevel newLogLevel) {
+void FLogView::_logLevelClickCb(LogLevel newLogLevel) {
     if(newLogLevel != _currentLogLevel) {
         if(static_cast<uint_fast8_t>(newLogLevel) > static_cast<uint_fast8_t>(_currentLogLevel)) {
             bool emptyFlag = _searchString.empty();
@@ -274,7 +282,7 @@ void FwDialog::_logLevelClickCb(LogLevel newLogLevel) {
     }
 }
 
-void FwDialog::_filterChangedCb(void){
+void FLogView::_filterChangedCb(void){
     bool clearFlag{false};
 
     // lock logger view access

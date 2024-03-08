@@ -4,10 +4,10 @@
 
 #include "final/final.h"
 
-class FwDialog : public finalcut::FDialog
+class FLogView : public finalcut::FDialog
 {
   public:
-    explicit FwDialog(finalcut::FWidget* = nullptr, uint_fast16_t scrollBackLimit = DEFAULT_LOG_BUFFER_SIZE);
+    explicit FLogView(finalcut::FWidget* = nullptr, uint_fast16_t scrollBackLimit = DEFAULT_LOG_BUFFER_SIZE);
 
     enum class LogLevel : uint_fast8_t {
       LOG_TRACE = 0,
@@ -16,7 +16,8 @@ class FwDialog : public finalcut::FDialog
       LOG_ERROR
     };
 
-    void addLog(std::wstring&& logLine, LogLevel logLevel);
+    void log(std::wstring&& logLine, LogLevel logLevel);
+    void clear(void);
 
   protected:
     void initLayout(void) override;
@@ -29,7 +30,6 @@ class FwDialog : public finalcut::FDialog
     void _autoScrollToggleCb(void);
     void _loggerScrollUpCb(void);
     void _playButtonCb(void);
-    void _clearButtonCb(void);
     void _logLevelClickCb(LogLevel);
     void _filterChangedCb(void);
 

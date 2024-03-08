@@ -8,7 +8,7 @@ void runInThread(void) {
   finalcut::FApplication::getApplicationObject()->exec();
 }
 
-void editInThread(FwDialog* ref) {
+void editInThread(FLogView* ref) {
   using namespace std::chrono_literals;
   uint16_t i;
 
@@ -20,22 +20,22 @@ void editInThread(FwDialog* ref) {
     {
     case 0:
       tempStr += L" trace";
-      ref->addLog(std::move(tempStr), FwDialog::LogLevel::LOG_TRACE);
+      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_TRACE);
       break;
     
     case 1:
       tempStr += L" info";
-      ref->addLog(std::move(tempStr), FwDialog::LogLevel::LOG_INFO);
+      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_INFO);
       break;
 
     case 2:
       tempStr += L" warning";
-      ref->addLog(std::move(tempStr), FwDialog::LogLevel::LOG_WARNING);
+      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_WARNING);
       break;
 
     case 3:
       tempStr += L" error";
-      ref->addLog(std::move(tempStr), FwDialog::LogLevel::LOG_ERROR);
+      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_ERROR);
       break;
     }
 
@@ -57,19 +57,19 @@ int main (int argc, char* argv[])
   app.initTerminal();
 
   // create fw-dialog
-  FwDialog fwDialog(&app, 300);
-  finalcut::FWidget::setMainWidget(&fwDialog);
-  fwDialog.setText(L"FW");
-  fwDialog.unsetShadow();
-  //fwDialog.unsetBorder();
-  fwDialog.setResizeable(true);
+  FLogView logger(&app, 300);
+  finalcut::FWidget::setMainWidget(&logger);
+  logger.setText(L"FW");
+  logger.unsetShadow();
+  //FLogView.unsetBorder();
+  logger.setResizeable(true);
   finalcut::FPoint fwPosition{1,1};
   finalcut::FSize fwSize{app.getDesktopWidth(), app.getDesktopHeight()};
-  fwDialog.setGeometry(fwPosition, fwSize);
-  fwDialog.show();
+  logger.setGeometry(fwPosition, fwSize);
+  logger.show();
 
   std::thread independentThread(runInThread);
-  std::thread independentThread2(editInThread, &fwDialog);
+  std::thread independentThread2(editInThread, &logger);
 
   independentThread2.join();
 
