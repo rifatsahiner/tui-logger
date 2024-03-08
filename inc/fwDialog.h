@@ -8,7 +8,7 @@
 class FwDialog : public finalcut::FDialog
 {
   public:
-    explicit FwDialog(finalcut::FWidget* = nullptr, uint_fast16_t = DEFAULT_LOG_WINDOW_SIZE);
+    explicit FwDialog(finalcut::FWidget* = nullptr, uint_fast16_t scrollBackLimit = DEFAULT_LOG_BUFFER_SIZE);
 
     enum class LogLevel : uint_fast8_t {
       LOG_TRACE = 0,
@@ -36,8 +36,8 @@ class FwDialog : public finalcut::FDialog
 
     // widgets
     finalcut::FTextView _fwLogger{this};
-    finalcut::FButton _buttonPlay{L"Play/Pause", this};
-    finalcut::FLabel _labelPlay{"\U0001F7E2", this};
+    finalcut::FButton _buttonPlay{L"▶/▮▮", this};
+    finalcut::FLabel _labelPlay{L"🟢", this};
     finalcut::FButton _buttonClear{L"Clear", this};
     finalcut::FButtonGroup _radiobutton_group {L"Log Level", this};
     finalcut::FRadioButton _error {"E", &_radiobutton_group};
@@ -45,7 +45,8 @@ class FwDialog : public finalcut::FDialog
     finalcut::FRadioButton _info {"I", &_radiobutton_group};
     finalcut::FRadioButton _trace {"T", &_radiobutton_group};
     finalcut::FLineEdit _lineEditFilter {this};
-    finalcut::FSwitch _toggleAutoScroll{L"Auto Scroll", this};
+    finalcut::FButtonGroup _toggleGroup {L"Auto Scroll", this};
+    finalcut::FSwitch _toggleAutoScroll{&_toggleGroup};
 
     // data members
     const uint_fast16_t _logSize;
@@ -62,10 +63,11 @@ class FwDialog : public finalcut::FDialog
     };
     std::list<LogItem> _mainLogList;
 
-    static constexpr uint_fast16_t DEFAULT_LOG_WINDOW_SIZE = 1000;
+    static constexpr uint_fast16_t DEFAULT_LOG_BUFFER_SIZE = 1000;
 };
 
-// append with r-value FString
+// append with FString r-value referance
 // moving a whole FTextViewList - this will call clear and than use new text list
+// FSwitch text orientation olmalı
 
 #endif  // FW_DIALOG_H

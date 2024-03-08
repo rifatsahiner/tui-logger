@@ -128,28 +128,29 @@ void FwDialog::_formLayout(void)
     setGeometry(fwPosition, fwSize);
 
     // play/pause button
-    _buttonPlay.setGeometry(finalcut::FPoint{3,2}, finalcut::FSize{12, 1});
+    _buttonPlay.setGeometry(finalcut::FPoint{3,2}, finalcut::FSize{8, 1});
 
     // play/pause indicator
-    _labelPlay.setGeometry(finalcut::FPoint{17,2}, finalcut::FSize{3, 1});
+    _labelPlay.setGeometry(finalcut::FPoint{13,2}, finalcut::FSize{3, 1});
 
     // clear button
-    _buttonClear.setGeometry(finalcut::FPoint{21,2}, finalcut::FSize{7, 1});
+    _buttonClear.setGeometry(finalcut::FPoint{17,2}, finalcut::FSize{7, 1});
 
     // button group
-    _radiobutton_group.setGeometry(finalcut::FPoint{32,1}, finalcut::FSize{30, 3});
+    _radiobutton_group.setGeometry(finalcut::FPoint{27,1}, finalcut::FSize{29, 3});
     _error.setGeometry(finalcut::FPoint{1,1}, finalcut::FSize{6, 1});
     _warning.setGeometry(finalcut::FPoint{8,1}, finalcut::FSize{6, 1});
     _info.setGeometry(finalcut::FPoint{15,1}, finalcut::FSize{6, 1});
     _trace.setGeometry(finalcut::FPoint{22,1}, finalcut::FSize{6, 1});
 
     // filter box
-    _lineEditFilter.setGeometry(finalcut::FPoint{66,2}, finalcut::FSize{20, 3});
+    _lineEditFilter.setGeometry(finalcut::FPoint{58,2}, finalcut::FSize{16, 3});
 
     // auto scroll toggle
-    finalcut::FPoint togglePosition{static_cast<int>(getClientWidth()) - 22, 2};
-    finalcut::FSize toggleSize{22, 1};
-    _toggleAutoScroll.setGeometry(togglePosition, toggleSize);
+    finalcut::FPoint togglePosition{static_cast<int>(getClientWidth()) - 14, 1};
+    finalcut::FSize toggleSize{15, 3};
+    _toggleGroup.setGeometry(togglePosition, toggleSize);
+    _toggleAutoScroll.setGeometry(finalcut::FPoint{2,1}, finalcut::FSize{10, 1});
 
     // logger view
     finalcut::FPoint loggerPosition{1,4};

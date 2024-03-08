@@ -40,10 +40,10 @@ void editInThread(FwDialog* ref) {
       break;
     }
 
-    std::this_thread::sleep_for(30ms);
+    std::this_thread::sleep_for(40ms);
   }
 
-  std::this_thread::sleep_for(20s);
+  std::this_thread::sleep_for(10s);
 
 }
 
