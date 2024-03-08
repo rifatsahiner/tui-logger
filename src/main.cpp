@@ -2,8 +2,7 @@
 #include <cstdint>
 #include <thread>
 
-#include "final/final.h"
-#include "fwDialog.h"
+#include "flogview.h"
 
 void runInThread(void) {  
   finalcut::FApplication::getApplicationObject()->exec();

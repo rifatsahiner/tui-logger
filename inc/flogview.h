@@ -1,6 +1,6 @@
 
-#ifndef FW_DIALOG_H
-#define FW_DIALOG_H
+#ifndef F_LOG_VIEW_H
+#define F_LOG_VIEW_H
 
 #include "final/final.h"
 
@@ -69,4 +69,4 @@ class FwDialog : public finalcut::FDialog
 // moving a whole FTextViewList - this will call clear and than use new text list
 // FSwitch text orientation olmalı
 
-#endif  // FW_DIALOG_H
+#endif  // F_LOG_VIEW_H
