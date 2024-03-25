@@ -4,15 +4,22 @@
 
 #include "flogview.h"
 
+volatile bool g_quit{false};
+
+void quitCb(void) {
+  g_quit = true;
+  finalcut::FApplication::getApplicationObject()->quit();
+}
+
 void runInThread(void) {  
   finalcut::FApplication::getApplicationObject()->exec();
 }
 
-void editInThread(FLogView* ref) {
+void editInThread(FLogViewMulti* ref) {
   using namespace std::chrono_literals;
   uint16_t i;
 
-  for(i = 0; i < 500; i++)
+  for(i = 0; i < 200; i++)
   {
     std::wstring tempStr{L"this is log " + std::to_wstring(i)};
 
@@ -20,36 +27,39 @@ void editInThread(FLogView* ref) {
     {
     case 0:
       tempStr += L" trace";
-      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_TRACE);
+      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_TRACE, 1);
       break;
     
     case 1:
       tempStr += L" info";
-      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_INFO);
+      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_INFO, 1);
       break;
 
     case 2:
       tempStr += L" warning";
-      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_WARNING);
+      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_WARNING, 1);
       break;
 
     case 3:
       tempStr += L" error";
-      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_ERROR);
+      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_ERROR, 1);
       break;
     }
+
+    if(g_quit)
+      break;
 
     std::this_thread::sleep_for(40ms);
   }
 
-  std::this_thread::sleep_for(10s);
-
+  if(g_quit == false){
+    std::this_thread::sleep_for(5s);
+  }
+  g_quit = true;
 }
 
 int main (int argc, char* argv[])
 {
-  // uint8_t i;
-
   // Create the application object
   finalcut::FApplication app(argc, argv);
 
@@ -57,12 +67,22 @@ int main (int argc, char* argv[])
   app.initTerminal();
 
   // create fw-dialog
-  FLogView logger(&app, 300);
+  FLogViewMulti logger(&app, 300);
   finalcut::FWidget::setMainWidget(&logger);
-  logger.setText(L"FW");
+  logger.setText(L"Logger");
   logger.unsetShadow();
-  //FLogView.unsetBorder();
+  //logger.unsetBorder();
+
   logger.setResizeable(true);
+  logger.setMinimizable(true);
+  logger.registerOnQuit(&quitCb);
+
+  logger.setViewSelectText("Task list");
+  logger.createView(1, "deneme-task");
+
+  // modal denenecek
+  // hide denenecek
+
   finalcut::FPoint fwPosition{1,1};
   finalcut::FSize fwSize{app.getDesktopWidth(), app.getDesktopHeight()};
   logger.setGeometry(fwPosition, fwSize);
@@ -73,7 +93,7 @@ int main (int argc, char* argv[])
 
   independentThread2.join();
 
-  finalcut::FApplication::getApplicationObject()->quit();
+  quitCb();
   independentThread.join();
   
   return 0;
