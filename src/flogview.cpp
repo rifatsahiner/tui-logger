@@ -242,7 +242,8 @@ void FLogViewBase::_log(LogList& logList, std::wstring&& logLine, LogLevel logLe
                 isShifted = true;
             } else {
                 // if search is active than remove oldest log only if it matches the search string
-                if(logList.front().logString.find(_searchString) != std::string::npos){
+                const std::wstring& oldestLog = logList.front().logString;
+                if(oldestLog.find(_searchString, oldestLog.find_first_of(L'|', 16) + 3) != std::string::npos){
                     _textView.deleteLine(0);
                     isShifted = true;
                 }
@@ -260,7 +261,7 @@ void FLogViewBase::_log(LogList& logList, std::wstring&& logLine, LogLevel logLe
             isPrinted = true;
         } else {
             // search is active, print if log matches the search
-            std::string::size_type pos = logLine.find(_searchString);
+            std::string::size_type pos = logLine.find(_searchString, logLine.find_first_of(L'|', 16) + 3);
             if(pos != std::string::npos){
                 _printLog(logLine, logLevel, pos);
                 isPrinted = true;
@@ -281,7 +282,7 @@ void FLogViewBase::_printWithSearch(const LogItem& logItem) {
     if(emptyFlag) {
         _printLog(logItem.logString, logItem.logLevel);
     } else {
-        std::string::size_type pos = logItem.logString.find(_searchString);
+        std::string::size_type pos = logItem.logString.find(_searchString, logItem.logString.find_first_of(L'|', 16) + 3);
         if(pos != std::string::npos){
             _printLog(logItem.logString, logItem.logLevel, pos);
         }
@@ -381,6 +382,9 @@ FLogViewMulti::FLogViewMulti(finalcut::FWidget* parent, uint_fast16_t scrollBack
     // configure dd-list
     _dropdownViewSelect.setLabelOrientation (finalcut::FLineEdit::LabelOrientation::Above);
     _dropdownViewSelect.unsetShadow();
+    _dropdownViewSelect.unsetEditable();
+    _dropdownViewSelect.addCallback("row-changed", this, &FLogViewMulti::_dropdownChangedCb);
+    _dropdownViewSelect.addCallback("changed", this, &FLogViewMulti::_dropdownChangedCb);
 
     _trace.addCallback("clicked", this, &FLogViewMulti::_logLevelClickCb, LogLevel::LOG_TRACE);
     _info.addCallback("clicked", this, &FLogViewMulti::_logLevelClickCb, LogLevel::LOG_INFO);
@@ -390,11 +394,6 @@ FLogViewMulti::FLogViewMulti(finalcut::FWidget* parent, uint_fast16_t scrollBack
     _lineEditFilter.addCallback("changed", this, &FLogViewMulti::_filterChangedCb);
 
     _buttonClear.addCallback("clicked", this, &FLogViewMulti::clear);
-    
-    // finalcut::FListBoxItem item ("deneme-1", 5);
-    // finalcut::FListBoxItem item2 ("deneme-2", 10);
-    // _dropdownViewSelect.insert(item);
-    // _dropdownViewSelect.insert(item2);
 }
 
 bool FLogViewMulti::createView(uint_fast16_t viewId, const std::string& viewName) {
@@ -403,11 +402,11 @@ bool FLogViewMulti::createView(uint_fast16_t viewId, const std::string& viewName
     }
     
     // create a new log-list with id
-    auto [_, result] = _viewMap.try_emplace(viewId, LogList{});
+    auto [iter, result] = _viewMap.try_emplace(viewId, LogList{});
     
     // return false if emplace is not succesful
     if(result) {
-        _dropdownViewSelect.insert(viewName, viewId);
+        _dropdownViewSelect.insert(viewName, iter->first);
         if(_viewMap.size() == 1){
             _activeViewId = viewId;
             _dropdownViewSelect.setCurrentItem(0);
@@ -415,6 +414,32 @@ bool FLogViewMulti::createView(uint_fast16_t viewId, const std::string& viewName
         _dropdownViewSelect.redraw();
     } 
     return result;
+}
+
+void FLogViewMulti::removeView(uint_fast16_t viewId) {
+    if(_viewMap.find(viewId) == _viewMap.cend()) {
+        return;
+    }
+
+    // locate and remove view from ddlist
+    _isRemoving = true;
+    for(std::size_t i = 1; i <= _dropdownViewSelect.getCount(); i++){
+        _dropdownViewSelect.setCurrentItem(i);
+        auto data = _dropdownViewSelect.getItemData<uint_fast16_t>();
+        if(data == viewId){
+            // ilgili view'ı sil
+            _viewMap.erase(viewId);
+
+            // remove list item and redraw
+            _dropdownViewSelect.remove(i);
+            _dropdownViewSelect.redraw();
+
+            // call cb manually
+            _isRemoving = false;
+            _dropdownChangedCb();
+            break;
+        }
+    }
 }
 
 void FLogViewMulti::setViewSelectText(const std::string& textStr) {
@@ -514,5 +539,29 @@ void FLogViewMulti::_filterChangedCb(void) {
         std::lock_guard<std::mutex> lg(_loggerViewMtx); 
 
         _filter(_viewMap.find(_activeViewId)->second);
+    }
+}
+
+void FLogViewMulti::_dropdownChangedCb(void) {
+    if(_isRemoving){
+        return;
+    }
+    
+    if(_dropdownViewSelect.getCount() == 0) {
+        // lock logger view access
+        std::lock_guard<std::mutex> lg(_loggerViewMtx); 
+        // clear logger view
+        FLogViewBase::clear();
+    } else {
+        // get current displayed id
+        auto currentViewId = _dropdownViewSelect.getItemData<uint_fast16_t>();
+        
+        if(currentViewId != _activeViewId) {
+            _activeViewId = currentViewId;
+            // lock logger view access
+            std::lock_guard<std::mutex> lg(_loggerViewMtx); 
+
+            _filter(_viewMap.find(_activeViewId)->second);
+        }
     }
 }

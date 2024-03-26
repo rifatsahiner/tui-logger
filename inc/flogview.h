@@ -114,11 +114,13 @@ class FLogViewMulti : public FLogViewBase {
 
     void _logLevelClickCb(LogLevel) override;
     void _filterChangedCb(void) override;
+    void _dropdownChangedCb(void);
 
     finalcut::FComboBox _dropdownViewSelect{this};
     
     std::unordered_map<uint_fast16_t, LogList> _viewMap;
     uint_fast16_t _activeViewId;
+    bool _isRemoving{false};
     const uint_fast16_t _viewSize;
 
     static constexpr uint_fast16_t DEFAULT_MAX_VIEW_COUNT = 200;
@@ -128,5 +130,6 @@ class FLogViewMulti : public FLogViewBase {
 // moving a whole FTextViewList - this will call clear and than use new text list
 // FSwitch text orientation olmalı
 // Dialog menüsünden close veya diğerleri kaldırılabilmeli, custom olarak hazırlanabilmeli
+// FCombobox getbydata yada benzeri bir fonksiyon sunması lazım
 
 #endif  // F_LOG_VIEW_H

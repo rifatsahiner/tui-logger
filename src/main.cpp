@@ -19,7 +19,7 @@ void editInThread(FLogViewMulti* ref) {
   using namespace std::chrono_literals;
   uint16_t i;
 
-  for(i = 0; i < 200; i++)
+  for(i = 0; i < 400; i++)
   {
     std::wstring tempStr{L"this is log " + std::to_wstring(i)};
 
@@ -32,12 +32,12 @@ void editInThread(FLogViewMulti* ref) {
     
     case 1:
       tempStr += L" info";
-      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_INFO, 1);
+      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_INFO, 3);
       break;
 
     case 2:
       tempStr += L" warning";
-      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_WARNING, 1);
+      ref->log(std::move(tempStr), FLogView::LogLevel::LOG_WARNING, 2);
       break;
 
     case 3:
@@ -54,6 +54,12 @@ void editInThread(FLogViewMulti* ref) {
 
   if(g_quit == false){
     std::this_thread::sleep_for(5s);
+    ref->removeView(3);
+    std::this_thread::sleep_for(3s);
+    ref->removeView(2);
+    std::this_thread::sleep_for(3s);
+    ref->removeView(1);
+    std::this_thread::sleep_for(10s);
   }
   g_quit = true;
 }
@@ -79,6 +85,8 @@ int main (int argc, char* argv[])
 
   logger.setViewSelectText("Task list");
   logger.createView(1, "deneme-task");
+  logger.createView(2, "try-task");
+  logger.createView(3, "test-task");
 
   // modal denenecek
   // hide denenecek
